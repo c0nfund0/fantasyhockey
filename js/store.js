@@ -67,6 +67,7 @@ function defaults() {
     roster: { committed: [], ops: [], history: [] },
     draft: { picks: [] },   // [{id, me}]
     ui: { view: 'players', team: 'TOR', pane: typeof window !== 'undefined' && window.innerWidth > 1280, playerFilter: {} },
+    suggest: { dismissed: [], taken: [], hideOwned: true },
     liveInjuries: null,     // {fetched, byName}
   };
 }

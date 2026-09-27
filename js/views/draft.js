@@ -4,6 +4,7 @@ import { esc, fmt } from '../format.js';
 import { state, update, CATS } from '../store.js';
 import { valueOf, adpNote, computeValues } from '../value.js';
 import { plink, teamChip, injBadge, ppChip, posLabel, toast } from '../ui.js';
+import { draftSuggestions } from '../suggest.js';
 
 const POS = ['C', 'LW', 'RW', 'D', 'G'];
 
@@ -108,6 +109,17 @@ function weightsPanel() {
     <p class="tiny muted">${pts ? 'Points per stat' : 'Category weights (1 = normal, 0 = punt)'}. Rankings update as you type. Full settings in League.</p>`;
 }
 
+function suggestedPicks(ds, avail) {
+  const sug = draftSuggestions(ds, avail);
+  if (!sug.length) return '';
+  return `<section class="card sugg-pick"><h3>Suggested pick${ds.next === ds.cur ? ' (you’re on the clock)' : ` for #${ds.next}`}</h3>
+    <div class="spicks">${sug.map((x, i) => `<div class="spick ${i === 0 ? 'best' : ''}">
+      <div class="row between"><div>${i === 0 ? '<span class="stype">Best fit</span>' : `<span class="stype alt">Alt ${i}</span>`} ${plink(x.p)} ${teamChip(x.p.team)} <span class="muted tiny">${posLabel(x.p)}</span></div>
+      <button class="sm primary" data-action="draft-me" data-id="${x.p.id}">Draft</button></div>
+      <ul class="reasons">${x.reasons.map(r => `<li class="r-${r.kind}">${esc(r.text)}</li>`).join('')}</ul></div>`).join('')}</div>
+  </section>`;
+}
+
 export function render() {
   computeValues();
   const ds = draftState();
@@ -129,6 +141,7 @@ export function render() {
 
     <div class="draft-grid">
       <div>
+        ${suggestedPicks(ds, avail)}
         <section class="card">
           <div class="row between wrap"><h3>Best available overall</h3><input type="search" placeholder="Find player…" value="${esc(f)}" data-change="draft-filter" aria-label="Find player"></div>
           <div class="tablewrap"><table class="grid compact">${head()}<tbody>${visible.slice(0, 25).map(p => row(p, ds)).join('')}</tbody></table></div>

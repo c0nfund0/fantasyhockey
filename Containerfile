@@ -15,7 +15,7 @@ RUN if [ -n "$HTTP_PROXY" ]; then \
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      python3 && \
+      python3 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --shell /bin/bash --uid 1000 apiuser
@@ -24,7 +24,11 @@ COPY index.html ./
 COPY css/ css/
 COPY js/ js/
 COPY data/ data/
+COPY scripts/ scripts/
 RUN chown -R apiuser:apiuser /app
 USER apiuser
 
-CMD python3 -m http.server "$PORT" --bind 0.0.0.0 --directory /app
+# Serves the site and refreshes data/ in the background (see scripts/serve.py).
+# The refresher makes outbound HTTPS calls (via HTTP_PROXY/HTTPS_PROXY if set at runtime) to:
+# moneypuck.com, api-web.nhle.com, api.nhle.com, lm-api-reads.fantasy.espn.com, site.api.espn.com
+CMD python3 /app/scripts/serve.py

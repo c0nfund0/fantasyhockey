@@ -42,7 +42,7 @@ function zScores(pool, cats, all) {
 
 export function computeValues() {
   const L = state.league;
-  const key = JSON.stringify([L.format, L.teams, L.slots, L.cats, L.goalieDiscount, D.players.length]);
+  const key = JSON.stringify([L.format, L.teams, L.slots, L.cats, L.goalieDiscount, D.meta.generated, D.players.length]);
   if (cache.key === key) return cache.res;
 
   const cats = activeCats(L);

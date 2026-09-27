@@ -7,6 +7,7 @@ export const D = { players: [], byId: new Map(), teams: {}, schedule: [], meta: 
 export async function loadData() {
   const get = n => fetch(`data/${n}.json`, { cache: 'no-cache' }).then(r => r.json());
   const [players, teams, schedule, meta] = await Promise.all(['players', 'teams', 'schedule', 'meta'].map(get));
+  D.byId = new Map();
   D.players = players;
   D.teams = teams;
   D.schedule = schedule;

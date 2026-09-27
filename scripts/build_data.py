@@ -6,9 +6,9 @@ Sources (all public, no keys):
   - NHL API (api-web.nhle.com / api.nhle.com/stats): rosters + bios, standings, schedule, counting stats
   - ESPN fantasy: ADP, positional eligibility, injury status + return dates
 
-Run:  python3 scripts/build_data.py            (uses a 12h download cache in scripts/.cache)
+Run:  python3 scripts/build_data.py            (re-downloads only sources whose cache has expired)
       python3 scripts/build_data.py --fresh    (ignore cache)
-Re-run daily in season; team outlook, injuries and current-season stats refresh each run.
+In production scripts/serve.py runs this every 30 minutes; per-source TTLs below decide what is refetched.
 """
 import csv
 import datetime as dt
@@ -26,7 +26,19 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 CACHE = os.path.join(ROOT, "scripts", ".cache")
 FRESH = "--fresh" in sys.argv
-CACHE_TTL = 12 * 3600
+MIN, HOUR, DAY = 60, 3600, 86400
+CACHE_TTL = 6 * HOUR
+# how stale each source may get before it is downloaded again
+TTL = {
+    "past": 7 * DAY,          # completed seasons: effectively static
+    "cur_mp": 3 * HOUR,       # MoneyPuck current season (they update overnight)
+    "cur_nhl": 1 * HOUR,      # NHL current-season stats
+    "standings": 1 * HOUR,
+    "rosters": 3 * HOUR,      # signings, call-ups, waivers
+    "schedule": 12 * HOUR,
+    "espn_players": 3 * HOUR, # ADP / eligibility
+    "injuries": 20 * MIN,
+}
 
 SEASON = 2026                      # season starting year being projected (2026-27)
 HIST = [2023, 2024, 2025]          # the "last 3 seasons" shown in the dashboard
@@ -41,11 +53,11 @@ TEAMS = ["ANA", "BOS", "BUF", "CAR", "CBJ", "CGY", "CHI", "COL", "DAL", "DET", "
 
 # ---------------------------------------------------------------- fetching
 
-def fetch(url, headers=None, cache_name=None):
+def fetch(url, headers=None, cache_name=None, ttl=CACHE_TTL):
     os.makedirs(CACHE, exist_ok=True)
     name = cache_name or re.sub(r"[^A-Za-z0-9]+", "_", url)[-150:]
     path = os.path.join(CACHE, name)
-    if not FRESH and os.path.exists(path) and time.time() - os.path.getmtime(path) < CACHE_TTL:
+    if not FRESH and os.path.exists(path) and time.time() - os.path.getmtime(path) < ttl:
         with open(path, "rb") as f:
             return f.read()
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", **(headers or {})})
@@ -63,6 +75,10 @@ def fetch(url, headers=None, cache_name=None):
         except Exception:
             time.sleep(1 + attempt)
     print("  ! failed:", url, file=sys.stderr)
+    if os.path.exists(path):   # fall back to the last good download rather than dropping the source
+        print("    using stale cache", file=sys.stderr)
+        with open(path, "rb") as f:
+            return f.read()
     return None
 
 
@@ -71,8 +87,8 @@ def fetch_json(url, **kw):
     return json.loads(body) if body else None
 
 
-def fetch_csv(url):
-    body = fetch(url)
+def fetch_csv(url, ttl=CACHE_TTL):
+    body = fetch(url, ttl=ttl)
     if not body or body.lstrip().startswith(b"<"):
         return []
     return list(csv.DictReader(io.StringIO(body.decode("utf-8"))))
@@ -103,14 +119,15 @@ def safe_div(a, b):
 def load_moneypuck():
     sk, go, tm = {}, {}, {}
     for y in CAREER + [SEASON]:
-        rows = fetch_csv(f"https://moneypuck.com/moneypuck/playerData/seasonSummary/{y}/regular/skaters.csv")
+        ttl = TTL["cur_mp"] if y == SEASON else TTL["past"]
+        rows = fetch_csv(f"https://moneypuck.com/moneypuck/playerData/seasonSummary/{y}/regular/skaters.csv", ttl)
         for row in rows:
             key = (int(row["playerId"]), y)
             sk.setdefault(key, {})[row["situation"]] = row
-        for row in fetch_csv(f"https://moneypuck.com/moneypuck/playerData/seasonSummary/{y}/regular/goalies.csv"):
+        for row in fetch_csv(f"https://moneypuck.com/moneypuck/playerData/seasonSummary/{y}/regular/goalies.csv", ttl):
             go.setdefault((int(row["playerId"]), y), {})[row["situation"]] = row
         if y in HIST + [SEASON]:
-            for row in fetch_csv(f"https://moneypuck.com/moneypuck/playerData/seasonSummary/{y}/regular/teams.csv"):
+            for row in fetch_csv(f"https://moneypuck.com/moneypuck/playerData/seasonSummary/{y}/regular/teams.csv", ttl):
                 tm.setdefault((row["team"], y), {})[row["situation"]] = row
         print(f"  moneypuck {y}: {len(rows)} skater rows")
     return sk, go, tm
@@ -122,7 +139,7 @@ def nhl_stats(kind, report, season):
     while True:
         url = (f"https://api.nhle.com/stats/rest/en/{kind}/{report}?limit=100&start={start}"
                f"&sort=playerId&cayenneExp=seasonId={sid}%20and%20gameTypeId=2")
-        d = fetch_json(url)
+        d = fetch_json(url, ttl=TTL["cur_nhl"] if season == SEASON else TTL["past"])
         if not d or not d.get("data"):
             break
         out += d["data"]
@@ -135,7 +152,7 @@ def nhl_stats(kind, report, season):
 def load_rosters():
     players = {}
     for t in TEAMS:
-        d = fetch_json(f"https://api-web.nhle.com/v1/roster/{t}/{SEASON}{SEASON + 1}") or {}
+        d = fetch_json(f"https://api-web.nhle.com/v1/roster/{t}/{SEASON}{SEASON + 1}", ttl=TTL["rosters"]) or {}
         for grp in ("forwards", "defensemen", "goalies"):
             for p in d.get(grp, []):
                 players[p["id"]] = {
@@ -158,18 +175,18 @@ def load_standings():
     """Final standings of the last completed season, plus live standings if the new season is underway."""
     final = None
     for day in ("2026-04-18", "2026-04-17", "2026-04-16", "2026-04-15"):
-        d = fetch_json(f"https://api-web.nhle.com/v1/standings/{day}")
+        d = fetch_json(f"https://api-web.nhle.com/v1/standings/{day}", ttl=30 * DAY)
         if d and d.get("standings"):
             final = d["standings"]
             break
-    now = (fetch_json("https://api-web.nhle.com/v1/standings/now") or {}).get("standings") or []
+    now = (fetch_json("https://api-web.nhle.com/v1/standings/now", ttl=TTL["standings"]) or {}).get("standings") or []
     return final or [], now
 
 
 def load_schedule():
     games = {}
     for t in TEAMS:
-        d = fetch_json(f"https://api-web.nhle.com/v1/club-schedule-season/{t}/{SEASON}{SEASON + 1}") or {}
+        d = fetch_json(f"https://api-web.nhle.com/v1/club-schedule-season/{t}/{SEASON}{SEASON + 1}", ttl=TTL["schedule"]) or {}
         for g in d.get("games", []):
             if g.get("gameType") != 2:
                 continue
@@ -184,7 +201,7 @@ ESPN_SLOTS = {0: "C", 1: "LW", 2: "RW", 4: "D", 5: "G"}
 def load_espn():
     filt = json.dumps({"players": {"limit": 1500, "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"}}})
     d = fetch_json(f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/{SEASON + 1}/segments/0/leaguedefaults/1?view=kona_player_info",
-                   headers={"x-fantasy-filter": filt}, cache_name="espn_players.json") or {"players": []}
+                   headers={"x-fantasy-filter": filt}, cache_name="espn_players.json", ttl=TTL["espn_players"]) or {"players": []}
     by_name = {}
     for p in d["players"]:
         pl = p["player"]
@@ -197,7 +214,7 @@ def load_espn():
             "espnStatus": pl.get("injuryStatus"),
         })
     inj = {}
-    d = fetch_json("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/injuries", cache_name="espn_injuries.json") or {}
+    d = fetch_json("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/injuries", cache_name="espn_injuries.json", ttl=TTL["injuries"]) or {}
     for t in d.get("injuries", []):
         for i in t.get("injuries", []):
             det = i.get("details") or {}
@@ -775,6 +792,17 @@ def main():
         "sources": ["MoneyPuck.com (advanced stats)", "NHL API (rosters, bios, schedule, standings, counting stats)",
                     "ESPN (ADP, eligibility, injuries)"],
     }
+    # never replace good data with the output of a broken run
+    problems = []
+    if len(out_players) < 600:
+        problems.append(f"only {len(out_players)} players")
+    if len(schedule) < 1000:
+        problems.append(f"only {len(schedule)} games")
+    if sum(1 for p in out_players if p.get("proj")) < 500:
+        problems.append("projections missing (stats source down?)")
+    if problems:
+        print("ABORT, keeping existing data: " + "; ".join(problems), file=sys.stderr)
+        sys.exit(2)
     dump("players.json", out_players)
     dump("teams.json", teams_out)
     dump("schedule.json", schedule)
@@ -786,8 +814,12 @@ def main():
 
 
 def dump(name, obj):
-    with open(os.path.join(DATA, name), "w") as fh:
+    # write-then-rename so the web server never serves a half-written file
+    final = os.path.join(DATA, name)
+    tmp = final + ".tmp"
+    with open(tmp, "w") as fh:
         json.dump(obj, fh, separators=(",", ":"), default=lambda o: None)
+    os.replace(tmp, final)
     print(f"  wrote data/{name} ({os.path.getsize(os.path.join(DATA, name)) // 1024} KB)")
 
 

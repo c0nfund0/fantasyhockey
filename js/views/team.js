@@ -45,7 +45,7 @@ export function renderTeam(abbrev, { popout = false } = {}) {
       <p class="muted tiny">Basis: ${fmt.num(t.outlookScore.ptpct * 100, 1)}% points pace${t.now ? ` (blends ${t.now.gp} GP this season)` : ' (last season)'}, ${fmt.pct(t.outlookScore.xgpct)} 5v5 xGF, core age ${fmt.num(t.outlookScore.avgAge, 1)}.
       Last season ${t.last.w}-${t.last.l}-${t.last.otl}, ${t.last.pts} pts, GD ${fmt.signed(t.last.gd)}.
       As of ${fr.gen ? fmt.dateTime(fr.gen.toISOString(), { weekday: undefined }) : '—'}.</p>
-      ${fr.deadline ? '<p class="flag warn">Trade-deadline window: outlook can flip fast. Rebuild the data daily.</p>' : fr.stale ? '<p class="flag warn">Outlook data is over a week old. Re-run the data build.</p>' : ''}
+      ${fr.deadline ? '<p class="flag warn">Trade-deadline window: outlook can flip fast. Standings refresh hourly.</p>' : fr.stale ? '<p class="flag warn">Data hasn’t refreshed for a while. The server’s auto-refresh may be failing (check container logs).</p>' : ''}
       ${t.coachChange ? `<p class="flag warn">Coaching change: ${esc(t.coachChange)}</p>` : ''}
     </section>
 

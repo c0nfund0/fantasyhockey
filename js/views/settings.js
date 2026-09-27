@@ -50,7 +50,7 @@ export function render() {
       <p class="small">Built ${D.meta.generated ? fmt.dateTime(D.meta.generated) : '—'} for ${esc(D.meta.season)}. Sources: ${D.meta.sources.map(esc).join('; ')}.</p>
       <p class="small">Injuries: ${live && live.fetched > D.meta.generated ? `live from ESPN, fetched ${fmt.dateTime(live.fetched)} (${Object.keys(live.byName).length} entries)` : 'from the last data build'}.
         <button data-action="refresh-inj">Refresh injuries now</button></p>
-      <p class="tiny muted">Stats, projections, lines, standings and team outlook refresh when the data build runs (see README). Injuries can also refresh live from here.</p>
+      <p class="tiny muted">Everything refreshes automatically on the server (injuries ~20 min, stats/standings hourly, rosters/ADP every few hours) and open pages pick up new data without reloading.</p>
       <h4>Backup</h4>
       <p class="small muted">Your league settings, rosters and draft board live in this browser. Export them to move to another device.</p>
       <div class="btnrow"><button data-action="export">Export app state</button><label class="button">Import… <input type="file" accept="application/json" data-change="import" hidden></label></div>

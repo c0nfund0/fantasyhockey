@@ -164,7 +164,7 @@ export function outlookFreshness() {
   const ageDays = gen ? (Date.now() - gen) / 86400000 : Infinity;
   const md = new Date().toISOString().slice(5, 10);
   const deadline = md >= '02-10' && md <= '03-15';
-  return { gen, ageDays, stale: ageDays > (deadline ? 1.5 : 7), deadline };
+  return { gen, ageDays, stale: ageDays > 0.25, deadline };
 }
 
 // ---- roster composition

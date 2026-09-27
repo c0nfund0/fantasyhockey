@@ -10,10 +10,12 @@ import * as sandboxV from './views/sandbox.js';
 import * as schedule from './views/schedule.js';
 import * as league from './views/league.js';
 import * as settings from './views/settings.js';
+import * as suggestions from './views/suggestions.js';
 import { tzOptions } from './views/settings.js';
 
 const VIEWS = {
   players: { label: 'Players', render: players.render },
+  suggestions: { label: 'Suggestions', render: suggestions.render },
   draft: { label: 'Draft', render: draft.render },
   sandbox: { label: 'Sandbox', render: sandboxV.render },
   commit: { label: 'Commit', render: sandboxV.renderCommit },
@@ -21,7 +23,7 @@ const VIEWS = {
   league: { label: 'League', render: league.render },
   settings: { label: 'Display', render: settings.render },
 };
-const ACTIONS = { ...draft.actions, ...sandboxV.actions, ...schedule.actions, ...league.actions, ...settings.actions };
+const ACTIONS = { ...suggestions.actions, ...draft.actions, ...sandboxV.actions, ...schedule.actions, ...league.actions, ...settings.actions };
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.get('pane') === 'team';
@@ -33,7 +35,7 @@ const view = () => (VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'pl
 function header() {
   const s = state.settings;
   return `<div class="brand"><span class="logo" aria-hidden="true">◆</span> Puck Ledger <span class="muted small">${esc(D.meta.season)}</span></div>
-    <nav>${Object.entries(VIEWS).map(([k, v]) => `<a href="#${k}" class="${view() === k ? 'on' : ''}">${v.label}${k === 'commit' && state.roster.ops.length ? ` <span class="count">${state.roster.ops.length}</span>` : ''}</a>`).join('')}</nav>
+    <nav>${Object.entries(VIEWS).map(([k, v]) => `<a href="#${k}" class="${view() === k ? 'on' : ''}">${v.label}${k === 'commit' && state.roster.ops.length ? ` <span class="count">${state.roster.ops.length}</span>` : ''}${k === 'suggestions' ? (n => n ? ` <span class="count">${n}</span>` : '')(suggestions.count()) : ''}</a>`).join('')}</nav>
     <div class="quick">
       <label class="tz" title="Timezone for game times"><span aria-hidden="true">🕒</span><select data-change="set:tz" aria-label="Timezone">${tzOptions(s.tz)}</select></label>
       <button data-action="toggle-height" title="Height units">${s.height === 'cm' ? 'cm' : 'ft-in'}</button>
@@ -151,6 +153,7 @@ function onChange(e) {
   else if (key.startsWith('set:')) settings.onChange(key, el);
   else if (key === 'draft-slot') update(s => { s.league.draftSlot = +el.value || 1; });
   else if (key === 'draft-filter') update(s => { s.ui.draftFilter = el.value; });
+  else if (key === 'sg-hideowned') update(s => { s.suggest.hideOwned = el.checked; });
   else if (key === 'sched-roster') update(s => { s.ui.schedRoster = el.value; });
   else if (key === 'import' && el.files[0]) settings.importState(el.files[0]).then(() => { buildWeeks(); toast('Imported'); }).catch(err => toast(err.message));
   else sandboxV.onChange(key, el);
@@ -174,4 +177,17 @@ subscribe(render);
   const age = Date.now() - Date.parse(D.meta.generated || 0);
   const liveAge = state.liveInjuries ? Date.now() - Date.parse(state.liveInjuries.fetched) : Infinity;
   if (!POPOUT && age > 6 * 3600e3 && liveAge > 6 * 3600e3) refreshInjuries().catch(() => {});
+  // the server rebuilds data every ~30 min; pick it up without a page reload
+  setInterval(checkForNewData, 5 * 60e3);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForNewData(); });
 })();
+
+async function checkForNewData() {
+  try {
+    const m = await fetch('data/meta.json', { cache: 'no-cache' }).then(r => r.json());
+    if (m.generated && m.generated !== D.meta.generated) {
+      await loadData();
+      update(() => {});   // clears derived caches and re-renders
+    }
+  } catch { /* offline or mid-deploy; try again next tick */ }
+}

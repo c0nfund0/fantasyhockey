@@ -51,3 +51,7 @@ Manual context the feeds don't provide goes in `data/overrides.json`:
 - **Value**: points leagues use fantasy points; category leagues use weighted z-scores against the draftable pool (ratio cats volume-weighted), then value over replacement by position after simulating every team's slots. Goalie value gets an adjustable volatility discount (League settings, default 25%).
 - **Lines / PP units**: derived from last season's TOI and PP TOI with the current roster, not scraped line combinations. They are a strong baseline; training-camp changes won't show until players log NHL minutes.
 - **Team outlook**: points % (blends in the current season as games accrue) + 5v5 xG% + core age.
+
+## License
+
+GNU General Public License v3.0 or later. See [LICENSE](LICENSE).

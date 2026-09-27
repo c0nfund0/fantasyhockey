@@ -120,7 +120,7 @@ body.popout #pane { display: flex; flex-direction: column; width: 100%; height: 
 table { border-collapse: collapse; width: 100%; }
 .grid th, .grid td { padding: .38rem .5rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
 .grid thead th { position: sticky; top: 0; background: var(--surface); font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 600; z-index: 1; }
-.grid thead th.num { text-align: right; }
+.grid th.num, .grid td.num { text-align: right; }
 .grid tbody tr:hover { background: var(--surface-2); }
 .grid.compact th, .grid.compact td { padding: .28rem .45rem; font-size: .84rem; }
 th.sortable { cursor: pointer; user-select: none; }

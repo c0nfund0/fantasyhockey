@@ -5,6 +5,7 @@ import { state, CATS, subscribe } from './store.js';
 import { valueOf, adpNote } from './value.js';
 import { luck, trend, injuryInfo, balance } from './analysis.js';
 import { committed, totals } from './roster.js';
+import { allocate, pickSlot, START_SLOTS, usable } from './slots.js';
 
 const pts = () => state.league.format === 'points';
 const gainThreshold = () => (pts() ? 12 : 0.6);
@@ -21,7 +22,7 @@ export function freeAgents() {
   const mine = new Set(committed());
   const un = unavailableIds();
   const hideOwned = state.suggest?.hideOwned ?? true;
-  return D.players.filter(p => p.proj && !mine.has(p.id) && !un.has(p.id) && !(hideOwned && (p.own ?? 0) >= 85));
+  return D.players.filter(p => p.proj && valueOf(p) && !p.offRoster && !mine.has(p.id) && !un.has(p.id) && !(hideOwned && (p.own ?? 0) >= 85));
 }
 
 function activeCountingCats() {
@@ -86,6 +87,7 @@ function sharesSlot(a, b) {
 }
 
 function dropReason(d) {
+  if (d.offRoster) return `${d.name} is no longer on an NHL roster (since ${d.offSince}).`;
   const i = injuryInfo(d);
   if (i && (i.games ?? 0) >= LONG_INJURY_GAMES) return `${d.name} is ${i.label.toLowerCase()} (~${i.games} games).`;
   const lk = luck(d);
@@ -104,12 +106,30 @@ export function rosterSuggestions() {
 
 function buildRosterSuggestions() {
   const ids = committed();
-  const mine = ids.map(id => D.byId.get(id)).filter(p => p?.proj);
+  const all = ids.map(id => D.byId.get(id)).filter(p => p?.proj);
+  const dead = all.filter(p => !usable(p));      // e.g. goalies in a league with 0 G slots
+  const mine = all.filter(p => usable(p));
   if (mine.length < 5) return { ready: false, items: [] };
   const weak = catProfile(ids);
   const fa = freeAgents().sort((a, b) => v(b) - v(a)).slice(0, 200);
   const items = [];
   const nextW = Math.min(D.weeks.length - 1, currentWeekIndex() + 1);
+
+  // 0. players who can never score in this league's lineup
+  const usedReps = new Set();
+  for (const p of dead) {
+    const rep = fa.find(c => usable(c) && !usedReps.has(c.id));
+    if (rep) usedReps.add(rep.id);
+    items.push({
+      id: `dead:${p.id}`, type: 'Unusable', title: `Drop ${p.name}${rep ? `, add ${rep.name}` : ''}`, score: 20, players: rep ? [p, rep] : [p],
+      ops: rep ? [{ type: 'drop', id: p.id }, { type: 'add', id: rep.id }] : [{ type: 'drop', id: p.id }],
+      reasons: [
+        { kind: 'bad', text: `Your league has no starting slot for a ${p.pos} (League → Roster positions), so ${p.name} can never score for you and only uses a roster spot.` },
+        rep ? { kind: 'good', text: `Best available player who fits your lineup: ${rep.name} (${rep.elig.join('/')}, value ${fmt.num(v(rep), 1)}).` } : null,
+        { kind: 'info', text: 'If your league does use this position, fix the roster slots in League settings instead.' },
+      ].filter(Boolean),
+    });
+  }
 
   // 1. add/drop upgrades
   const usedDrops = new Set();
@@ -153,11 +173,19 @@ function buildRosterSuggestions() {
   const myIds = new Set(ids);
   const buys = D.players.filter(p => p.proj && !myIds.has(p.id) && luck(p)?.kind === 'good' && valueOf(p)?.rank <= state.league.teams * 8)
     .sort((a, b) => v(b) - v(a)).slice(0, 4);
+  const un = unavailableIds();
+  const draftedBy = new Map(state.draft.picks.map((pk, i) => [pk.id, i + 1]));
   for (const p of buys) {
     const lk = luck(p);
+    const owned = un.has(p.id);
     items.push({
-      id: `buy:${p.id}`, type: 'Buy low', title: `Trade for ${p.name}`, score: 1.5 + v(p) * (pts() ? 0.02 : 0.25), players: [p],
+      id: `buy:${p.id}`, type: owned ? 'Buy low (trade)' : 'Buy low (available)',
+      title: owned ? `Trade for ${p.name}` : `Pick up ${p.name}`, score: 1.5 + v(p) * (pts() ? 0.02 : 0.25), players: [p],
+      ops: owned ? null : [{ type: 'add', id: p.id }],
       reasons: [
+        owned
+          ? { kind: 'info', text: draftedBy.has(p.id) ? `On another team in your league (drafted at pick ${draftedBy.get(p.id)}): a trade target, not a free agent.` : 'Marked as taken in your league: a trade target.' }
+          : { kind: 'good', text: 'Not drafted or marked taken in your league, so you may be able to add them directly.' },
         ...lk.items.filter(i => i.dir === 'low').map(i => ({ kind: 'good', text: `${i.label} ${i.val} vs career ${i.norm} (${i.diff}). ${i.note}` })),
         ...roleReasons(p).filter(r => !r.text.startsWith('Buy-low')),
         { kind: 'info', text: `Your league rank #${valueOf(p).rank}. The owner may value them on last season's box score.` },
@@ -243,21 +271,29 @@ function buildRosterSuggestions() {
 // ---- draft: recommended pick(s) now
 export function draftSuggestions(ds, avail) {
   const L = state.league;
-  const have = {};
-  for (const p of ds.mine) for (const e of p.elig) have[e] = (have[e] || 0) + 1;
+  if (ds.full) return [];
+  const { open } = allocate([...ds.mine].sort((a, b) => v(b) - v(a)));
+  const slotLabel = k => ({ F: 'F (forward)', UTIL: 'UTIL (any skater)', BN: 'bench' }[k] || k);
+  const filled = k => `${L.slots[k] - open[k]}/${L.slots[k]}`;
   const weak = ds.mine.length >= 4 ? catProfile(ds.mine.map(p => p.id)) : [];
-  const cands = avail.slice(0, 40);
+  // where each candidate would go; players with no open slot at all are never suggested
+  const placed = avail.slice(0, 150).map(p => ({ p, slot: pickSlot(p, open) })).filter(x => x.slot);
+  // fill starting slots first; only when every starting slot is taken do bench picks come up
+  const starters = placed.filter(x => START_SLOTS.includes(x.slot));
+  const pool = (starters.length ? starters : placed).slice(0, 40);
+  const cands = pool.map(x => x.p);
+  const slotOf = new Map(pool.map(x => [x.p.id, x.slot]));
   const top = v(cands[0] || {}) || 1;
   const scored = cands.map(p => {
     const reasons = [];
     let s = v(p);
     const unit = pts() ? top * 0.06 : 0.5;
     const rank = cands.indexOf(p);
-    if (rank === 0) reasons.push({ kind: 'good', text: 'Highest value left on the board under your scoring.' });
+    if (rank === 0) reasons.push({ kind: 'good', text: 'Highest value left among players who fit an open slot on your roster.' });
     else reasons.push({ kind: 'info', text: `Value ${fmt.num(v(p), pts() ? 0 : 2)}, #${rank + 1} available.` });
-    const needPos = p.elig.filter(e => (L.slots[e] || 0) > (have[e] || 0));
-    if (needPos.length) { s += unit * 0.6; reasons.push({ kind: 'good', text: `Fills an open ${needPos.join('/')} starting slot (${needPos.map(e => `${have[e] || 0}/${L.slots[e]}`).join(', ')}).` }); }
-    else if (ds.mine.length >= 6) { s -= unit * 0.8; reasons.push({ kind: 'warn', text: `Your ${p.elig.join('/')} starting slots are already filled.` }); }
+    const slot = slotOf.get(p.id);
+    if (slot === 'BN') reasons.push({ kind: 'info', text: `Your starting slots are full; this is a bench pick (bench ${filled('BN')}).` });
+    else reasons.push({ kind: 'good', text: `Fills an open ${slotLabel(slot)} starting slot (${filled(slot)} filled).` });
     if (p.adp && ds.after && p.adp > ds.after + 3) { s -= unit; reasons.push({ kind: 'warn', text: `ESPN ADP ${fmt.num(p.adp, 0)} is after your following pick (#${ds.after}), so you can likely wait on them.` }); }
     else if (p.adp && ds.after && p.adp < ds.after) { s += unit * 0.5; reasons.push({ kind: 'good', text: `Won't last: ADP ${fmt.num(p.adp, 0)} comes before your following pick (#${ds.after}).` }); }
     const an = adpNote(p);

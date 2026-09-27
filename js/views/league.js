@@ -13,7 +13,7 @@ export function render() {
   const catRows = g => CATS.filter(c => c.grp === g).map(c => {
     const cc = L.cats[c.key];
     return `<tr><td><label>${pts ? '' : `<input type="checkbox" data-change="cat-on:${c.key}" ${cc.on ? 'checked' : ''}> `}<b>${c.label}</b> <span class="muted small">${esc(c.name)}</span></label></td>
-      <td>${pts ? `<input type="number" step="0.1" value="${cc.pts}" data-change="w:${c.key}" aria-label="${esc(c.name)} points">` : `<input type="number" step="0.25" value="${cc.w}" data-change="w:${c.key}" ${cc.on ? '' : 'disabled'} aria-label="${esc(c.name)} weight">`}</td></tr>`;
+      <td>${pts ? `<input type="number" step="0.1" value="${cc.pts}" data-change="w:${c.key}" aria-label="${esc(c.name)} points">` : `<input type="number" step="0.1" value="${cc.w}" data-change="w:${c.key}" ${cc.on ? '' : 'disabled'} aria-label="${esc(c.name)} weight">`}</td></tr>`;
   }).join('');
   return `<div class="view-head row between wrap"><div><h1>League configuration</h1><p class="muted">Every value and ranking in the app is recalculated from these settings, live, including mid-draft.</p></div>
     <button data-action="league-reset" class="danger">Reset to defaults</button></div>
@@ -35,7 +35,7 @@ export function render() {
         </section>
         <section class="card">
           <h3>${pts ? 'Points per stat' : 'Scoring categories & weights'}</h3>
-          <p class="tiny muted">${pts ? 'Negative values subtract (e.g. GA −2).' : 'Weight 1 = standard. Raise to prioritize, 0.5 to de-emphasize, untick to ignore (punt). Ratio categories (SV%, GAA) are weighted by volume.'}</p>
+          <p class="tiny muted">${pts ? 'Negative values subtract (e.g. GA −2).' : 'Weight 1 = standard, in steps of 0.1. Raise to prioritize, e.g. 0.5 to de-emphasize, untick to ignore (punt). Ratio categories (SV%, GAA) are weighted by volume.'}</p>
           <div class="cols2 tight"><table class="cats"><thead><tr><th>Skaters</th><th>${pts ? 'Pts' : 'Weight'}</th></tr></thead><tbody>${catRows('S')}</tbody></table>
           <table class="cats"><thead><tr><th>Goalies</th><th>${pts ? 'Pts' : 'Weight'}</th></tr></thead><tbody>${catRows('G')}</tbody></table></div>
         </section>

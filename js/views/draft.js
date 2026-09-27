@@ -5,11 +5,13 @@ import { state, update, CATS } from '../store.js';
 import { valueOf, adpNote, computeValues } from '../value.js';
 import { plink, teamChip, injBadge, ppChip, posLabel, toast } from '../ui.js';
 import { draftSuggestions } from '../suggest.js';
+import { allocate, rosterSize, usable, START_SLOTS } from '../slots.js';
 
 const POS = ['C', 'LW', 'RW', 'D', 'G'];
 
+// overall pick number of your pick in round r of a snake draft
 function snake(T, slot) {
-  return n => { const r = Math.ceil(n / T); return r % 2 ? (r - 1) * T + slot : (r - 1) * T + (T - slot + 1); };
+  return r => (r % 2 ? (r - 1) * T + slot : (r - 1) * T + (T - slot + 1));
 }
 
 export function draftState() {
@@ -17,13 +19,18 @@ export function draftState() {
   const picks = state.draft.picks;
   const cur = picks.length + 1;
   const pickOfRound = snake(T, Math.min(T, Math.max(1, state.league.draftSlot)));
-  let next = null;
-  for (let r = 1; r < 60; r++) { const n = pickOfRound(r); if (n >= cur) { next = n; break; } }
-  let after = null;
-  for (let r = 1; r < 60; r++) { const n = pickOfRound(r); if (n > next) { after = n; break; } }
   const taken = new Set(picks.map(p => p.id));
   const mine = picks.filter(p => p.me).map(p => D.byId.get(p.id)).filter(Boolean);
-  return { T, cur, round: Math.ceil(cur / T), next, after, taken, mine };
+  const size = rosterSize();
+  const full = mine.length >= size;
+  let next = null, after = null;
+  if (!full) {
+    const lastRound = Math.max(size, Math.ceil(cur / T) + 1);
+    for (let r = 1; r <= lastRound + 1; r++) { const n = pickOfRound(r); if (n >= cur) { next = n; break; } }
+    // your following pick only exists if you still have a roster spot after the next one
+    if (mine.length + 1 < size) for (let r = 1; r <= lastRound + 2; r++) { const n = pickOfRound(r); if (n > next) { after = n; break; } }
+  }
+  return { T, cur, round: Math.ceil(cur / T), next, after, taken, mine, size, full };
 }
 
 function available(taken) {
@@ -62,6 +69,7 @@ function scarcity(ds, avail) {
   const picksUntilNext = ds.next ? ds.next - ds.cur : 0;
   const out = [];
   for (const [label, fn] of groups) {
+    if (!all.some(p => fn(p) && usable(p))) continue;   // group can't be used in this league
     const total = all.filter(fn).length;
     const left = avail.filter(fn);
     const takenN = total - left.length;
@@ -91,13 +99,11 @@ function scarcity(ds, avail) {
 
 function needs(ds) {
   const slots = state.league.slots;
-  const have = {};
-  for (const p of ds.mine) for (const e of p.elig) have[e] = (have[e] || 0) + 1;
-  return POS.map(pos => {
-    const need = (slots[pos] || 0);
-    const got = have[pos] || 0;
-    return `<span class="need ${got >= need ? 'met' : ''}">${pos} ${got}/${need}</span>`;
-  }).join('');
+  const { open } = allocate([...ds.mine].sort((a, b) => (valueOf(b)?.vorp ?? -99) - (valueOf(a)?.vorp ?? -99)));
+  return [...START_SLOTS, 'BN'].filter(k => slots[k] > 0).map(k => {
+    const cap = slots[k], got = cap - open[k];
+    return `<span class="need ${got >= cap ? 'met' : ''}" title="${k === 'BN' ? 'Bench' : k === 'F' ? 'Forward (C/LW/RW)' : k === 'UTIL' ? 'Any skater' : k} slots filled">${k} ${got}/${cap}</span>`;
+  }).join('') + `<span class="need ${ds.full ? 'met' : ''}" title="Players drafted / roster size (starters + bench)">Roster ${ds.mine.length}/${ds.size}</span>`;
 }
 
 function weightsPanel() {
@@ -105,13 +111,14 @@ function weightsPanel() {
   const pts = L.format === 'points';
   const cats = CATS.filter(c => pts ? L.cats[c.key].pts : L.cats[c.key].on);
   return `<div class="weights">${cats.map(c => `<label title="${esc(c.name)}"><span>${c.label}</span>
-    <input type="number" step="${pts ? 0.1 : 0.25}" value="${pts ? L.cats[c.key].pts : L.cats[c.key].w}" data-change="w:${c.key}" aria-label="${esc(c.name)} weight"></label>`).join('')}</div>
+    <input type="number" step="0.1" value="${pts ? L.cats[c.key].pts : L.cats[c.key].w}" data-change="w:${c.key}" aria-label="${esc(c.name)} weight"></label>`).join('')}</div>
     <p class="tiny muted">${pts ? 'Points per stat' : 'Category weights (1 = normal, 0 = punt)'}. Rankings update as you type. Full settings in League.</p>`;
 }
 
 function suggestedPicks(ds, avail) {
+  if (ds.full) return `<section class="card sugg-pick"><h3>Suggested pick</h3><p>Your roster is full (${ds.mine.length}/${ds.size} players, starters + bench). Nothing more to draft; mark the remaining picks as <b>Taken</b> or head to <a href="#suggestions">Suggestions</a>.</p></section>`;
   const sug = draftSuggestions(ds, avail);
-  if (!sug.length) return '';
+  if (!sug.length) return `<section class="card sugg-pick"><h3>Suggested pick</h3><p class="muted">No available player fits an open roster slot.</p></section>`;
   return `<section class="card sugg-pick"><h3>Suggested pick${ds.next === ds.cur ? ' (you’re on the clock)' : ` for #${ds.next}`}</h3>
     <div class="spicks">${sug.map((x, i) => `<div class="spick ${i === 0 ? 'best' : ''}">
       <div class="row between"><div>${i === 0 ? '<span class="stype">Best fit</span>' : `<span class="stype alt">Alt ${i}</span>`} ${plink(x.p)} ${teamChip(x.p.team)} <span class="muted tiny">${posLabel(x.p)}</span></div>
@@ -132,7 +139,7 @@ export function render() {
       <div><h1>Draft mode</h1><p class="muted">Ranked by your league scoring, not ADP. ADP from ESPN (${D.players.filter(p => p.adp).length} players).</p></div>
       <div class="draftbar">
         <div><span class="muted small">Pick</span> <b>${ds.cur}</b> <span class="muted small">(round ${ds.round})</span></div>
-        <div><span class="muted small">Your next</span> <b>${ds.next ?? '—'}</b>${ds.next === ds.cur ? ' <span class="badge good">On the clock</span>' : ` <span class="muted small">in ${ds.next - ds.cur} picks</span>`}</div>
+        <div><span class="muted small">Your next</span> ${ds.full ? '<b>—</b> <span class="badge good">Roster full</span>' : `<b>${ds.next ?? '—'}</b>${ds.next === ds.cur ? ' <span class="badge good">On the clock</span>' : ` <span class="muted small">in ${ds.next - ds.cur} picks</span>`}`}</div>
         <label class="small">Your slot <input type="number" min="1" max="${ds.T}" value="${state.league.draftSlot}" data-change="draft-slot" style="width:4em"></label>
         <button data-action="draft-undo" ${last ? '' : 'disabled'}>Undo${last ? ` ${esc(D.byId.get(last.id)?.name.split(' ').at(-1) || '')}` : ''}</button>
         <button data-action="draft-reset" class="danger">Reset</button>
@@ -147,7 +154,7 @@ export function render() {
           <div class="tablewrap"><table class="grid compact">${head()}<tbody>${visible.slice(0, 25).map(p => row(p, ds)).join('')}</tbody></table></div>
         </section>
         <div class="posgrid">
-          ${POS.map(pos => `<section class="card"><h3>${pos}</h3><div class="tablewrap"><table class="grid compact">${head(false)}<tbody>${avail.filter(p => p.elig.includes(pos)).slice(0, 8).map(p => row(p, ds, false)).join('')}</tbody></table></div></section>`).join('')}
+          ${POS.filter(pos => avail.some(p => p.elig.includes(pos))).map(pos => `<section class="card"><h3>${pos}</h3><div class="tablewrap"><table class="grid compact">${head(false)}<tbody>${avail.filter(p => p.elig.includes(pos)).slice(0, 8).map(p => row(p, ds, false)).join('')}</tbody></table></div></section>`).join('')}
         </div>
       </div>
       <aside>

@@ -16,6 +16,7 @@ export function teamChip(abbrev) {
 }
 
 export function injBadge(p) {
+  if (p.offRoster) return `<span class="badge bad" title="Not on any NHL roster since ${esc(p.offSince || '')} (minors, waivers or unsigned). Projection assumes a return.">Off NHL roster</span>`;
   const i = injuryInfo(p);
   if (!i) return '';
   const cls = i.status === 'Day-To-Day' ? 'warn' : 'bad';

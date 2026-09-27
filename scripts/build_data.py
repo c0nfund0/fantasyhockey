@@ -171,6 +171,27 @@ def load_rosters():
     return players
 
 
+def player_from_landing(pid):
+    """Bio + current team for one player; None unless active on an NHL team.
+    Needed because the roster feed omits injured players."""
+    d = fetch_json(f"https://api-web.nhle.com/v1/player/{pid}/landing", ttl=TTL["rosters"])
+    if not d or not d.get("isActive") or d.get("currentTeamAbbrev") not in TEAMS:
+        return None
+    return {
+        "id": pid,
+        "name": f'{d["firstName"]["default"]} {d["lastName"]["default"]}',
+        "team": d["currentTeamAbbrev"],
+        "pos": {"L": "LW", "R": "RW"}.get(d.get("position"), d.get("position")),
+        "num": d.get("sweaterNumber"),
+        "shoots": d.get("shootsCatches"),
+        "hIn": d.get("heightInInches"), "hCm": d.get("heightInCentimeters"),
+        "wLb": d.get("weightInPounds"), "wKg": d.get("weightInKilograms"),
+        "born": d.get("birthDate"),
+        "country": d.get("birthCountry"),
+        "img": d.get("headshot"),
+    }
+
+
 def load_standings():
     """Final standings of the last completed season, plus live standings if the new season is underway."""
     final = None
@@ -541,6 +562,23 @@ def main():
     schedule = load_schedule()
     espn, injuries = load_espn()
 
+    # The roster feed leaves out injured players. Re-add them (and anyone who vanished since the last
+    # build) when the player's own page still lists an NHL team.
+    name_ids = {}
+    for (pid, y), rows in list(mp_sk.items()) + list(mp_go.items()):
+        if y >= CAREER[-2] and "all" in rows:
+            name_ids.setdefault(norm_name(rows["all"]["name"]), set()).add(pid)
+    rostered_names = {norm_name(p["name"]) for p in roster.values()}
+    check = {pid for n in injuries if n not in rostered_names for pid in name_ids.get(n, ())}
+    check |= {p["id"] for p in previous_players()} - set(roster)
+    added = 0
+    for pid in sorted(check - set(roster)):
+        rec = player_from_landing(pid)
+        if rec:
+            roster[pid] = rec
+            added += 1
+    print(f"  re-added {added} players missing from the roster feed (injured etc.)")
+
     for p in roster.values():
         p["age"] = age_on(p["born"])
 
@@ -791,6 +829,13 @@ def main():
         p.pop("last", None)
         p.pop("roles", None) if p["pos"] == "G" else None
 
+    # Players who drop off every NHL roster (sent down, waived, unsigned) stay in the data for the rest of
+    # the season, so fantasy rosters and draft boards that include them keep working.
+    carried = carry_forward({p["id"] for p in out_players})
+    out_players += carried
+    if carried:
+        print(f"  carried forward {len(carried)} players no longer on an NHL roster")
+
     now_iso = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
     meta = {
         "generated": now_iso,
@@ -822,6 +867,33 @@ def main():
         dump("overrides.json", {"_help": "Manual context the feeds don't provide. coachingChanges: {\"TEAM\": \"note\"}",
                                 "coachingChanges": {}})
     print(f"done: {len(out_players)} players, {len(schedule)} games")
+
+
+def previous_players():
+    """players.json from the last build of this same season ([] otherwise)."""
+    try:
+        prev = json.load(open(os.path.join(DATA, "players.json")))
+        prev_season = json.load(open(os.path.join(DATA, "meta.json"))).get("season")
+    except (OSError, ValueError):
+        return []
+    return prev if prev_season == f"{SEASON}-{str(SEASON + 1)[2:]}" else []
+
+
+def carry_forward(current_ids):
+    prev = previous_players()
+    today = dt.date.today().isoformat()
+    out = []
+    for p in prev:
+        if p["id"] in current_ids:
+            continue
+        p = dict(p)
+        p["offRoster"] = True
+        p["offSince"] = p.get("offSince") or today
+        p.pop("inj", None)
+        p["role"] = {"slot": "Not on NHL roster", "tier": None, "pp": None, "held": 0,
+                     "threats": [f"Off NHL rosters since {p['offSince']} (minors, waivers or unsigned)"], "security": "Low"}
+        out.append(p)
+    return out
 
 
 def dump(name, obj):

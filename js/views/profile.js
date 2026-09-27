@@ -8,7 +8,7 @@ import { teamChip, injBadge, posLabel, flagChip, secChip, ppChip, catFmt } from 
 import { sandbox, committed } from '../roster.js';
 
 // Projected stats your league doesn't score are hidden (League setting); G/A/P and usage always show.
-const SCORED_COL = { SOG: 'sog', PPP: 'ppp', '+/-': 'pm', PIM: 'pim', HIT: 'hit', BLK: 'blk', FOW: 'fow', W: 'w', 'SV%': 'svp', GAA: 'gaa', SO: 'so' };
+const SCORED_COL = { SOG: 'sog', PPP: 'ppp', '+/-': 'pm', PIM: 'pim', HIT: 'hit', BLK: 'blk', FOW: 'fow', HAT: 'ht', W: 'w', 'SV%': 'svp', GAA: 'gaa', SO: 'so' };
 const UNSCORED = '<span class="muted" title="Not scored in your league (League settings)">·</span>';
 
 function leagueScores(label) {
@@ -34,6 +34,7 @@ function skaterSeasons(p) {
     ['PDO', s => fmt.pdo(s.pdo), 'oiSH% + oiSV% at 5v5'],
     ['PPP', s => fmt.num(s.ppp)], ['+/-', s => fmt.signed(s.pm)], ['PIM', s => fmt.num(s.pim)],
     ['HIT', s => fmt.num(s.hit)], ['BLK', s => fmt.num(s.blk)],
+    ['HAT', s => s.ht != null ? fmt.num(s.ht, 1) : '<span class="muted">—</span>', 'Hat tricks (3+ goal games). Not tracked in past-season data; projection is modeled from projected goals/game.'],
   ];
   if (p.pos === 'C') cols.push(['FOW', s => fmt.num(s.fow)]);
   const rows = keys.map((k, i) => {
@@ -46,7 +47,7 @@ function skaterSeasons(p) {
     const cells = {
       GP: fmt.num(pr.gp), Team: esc(p.team), [`TOI (${fmt.toiUnit()})`]: fmt.toi(pr.toi), 'PP TOI': fmt.toi(pr.pptoi), 'ixG': fmt.num(pr.xg, 1),
       G: fmt.num(pr.g), A: fmt.num(pr.a), P: fmt.num(pr.p), SOG: fmt.num(pr.sog), 'SH%': fmt.pct(pr.sh), PPP: fmt.num(pr.ppp),
-      '+/-': fmt.signed(pr.pm), PIM: fmt.num(pr.pim), HIT: fmt.num(pr.hit), BLK: fmt.num(pr.blk), FOW: fmt.num(pr.fow),
+      '+/-': fmt.signed(pr.pm), PIM: fmt.num(pr.pim), HIT: fmt.num(pr.hit), BLK: fmt.num(pr.blk), FOW: fmt.num(pr.fow), HAT: fmt.num(pr.ht, 1),
     };
     rows.push(`<tr class="proj"><th>${D.meta.season} projection</th>${cols.map(c => `<td>${!leagueScores(c[0]) ? UNSCORED : cells[c[0]] ?? '<span class="muted">—</span>'}</td>`).join('')}</tr>`);
   }

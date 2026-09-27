@@ -57,7 +57,7 @@ export function render() {
         <section class="card">
           <h3>Player profiles</h3>
           <label class="small"><input type="checkbox" data-change="proj-only-scored" ${L.projOnlyScored !== false ? 'checked' : ''}> Projections: only show stats my league scores</label>
-          <p class="tiny muted">Goals, assists, points and ice time are always projected. PIM, hits, blocks, PPP, SOG, +/-, faceoffs (and goalie W, SV%, GAA, SO) appear only when scored above. Past seasons always show everything.</p>
+          <p class="tiny muted">Goals, assists, points and ice time are always projected. PIM, hits, blocks, PPP, SOG, +/-, faceoffs, hat tricks (and goalie W, SV%, GAA, SO) appear only when scored above. Past seasons always show everything (hat tricks excepted: no historical per-game data source exists for them).</p>
         </section>
         <section class="card">
           <h3>Goalie volatility discount</h3>

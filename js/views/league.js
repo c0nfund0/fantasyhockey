@@ -3,7 +3,39 @@ import { D, playoffWeeks, buildWeeks } from '../data.js';
 import { esc, fmt } from '../format.js';
 import { state, update, CATS, SLOT_KEYS, resetLeague } from '../store.js';
 import { valueOf } from '../value.js';
-import { plink, posLabel } from '../ui.js';
+import { plink, posLabel, toast } from '../ui.js';
+import { leagueIdFromUrl, connect, importSettings, sync } from '../espn.js';
+
+function espnCard() {
+  const e = state.espn;
+  const id = leagueIdFromUrl(state.league.url);
+  return `<section class="card">
+    <h3>ESPN league sync</h3>
+    <p class="small">League URL above: ${id ? `league ID <b>${id}</b> detected${e.leagueName ? ` (${esc(e.leagueName)})` : ''}` : '<span class="warnc">paste your ESPN league URL (it contains <code>leagueId=</code>)</span>'}.</p>
+    <details ${e.s2 ? 'open' : ''}><summary class="small">Private league? Add your ESPN cookies</summary>
+      <p class="tiny muted">In a browser logged in to ESPN: DevTools → Application → Cookies → espn.com, copy <code>espn_s2</code> and <code>SWID</code>. They stay in this browser and are only forwarded to ESPN by this site’s server. Public leagues don’t need them.</p>
+      <div class="formgrid"><label>espn_s2 <input type="password" autocomplete="off" value="${esc(e.s2)}" data-change="espn:s2"></label>
+      <label>SWID <input type="text" autocomplete="off" placeholder="{XXXXXXXX-…}" value="${esc(e.swid)}" data-change="espn:swid"></label></div>
+    </details>
+    <div class="btnrow">
+      <button data-action="espn-connect" ${id ? '' : 'disabled'}>Connect & load teams</button>
+      ${e.teams.length ? `<label class="small">My team <select data-change="espn:teamId"><option value="">— choose —</option>${e.teams.map(t => `<option value="${t.id}" ${e.teamId === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>` : ''}
+      <button data-action="espn-import" ${id ? '' : 'disabled'}>Import roster slots & teams</button>
+    </div>
+    <div class="btnrow">
+      <label class="small"><input type="checkbox" data-change="espn:auto" ${e.auto ? 'checked' : ''}> Sync automatically (every 15 s during the draft, every 10 min otherwise)</label>
+      <button data-action="espn-sync" ${id ? '' : 'disabled'}>Sync now</button>
+    </div>
+    <p class="tiny muted">${espnStatus()}</p>
+  </section>`;
+}
+
+export function espnStatus() {
+  const e = state.espn;
+  if (e.error) return `<span class="neg">Last sync failed: ${esc(e.error)}</span>`;
+  if (!e.lastSync) return 'Not synced yet.';
+  return `Last sync ${fmt.time(e.lastSync)} · draft ${esc(e.draftState || '?')} · ${state.draft.picks.length} picks${e.unmapped ? ` (${e.unmapped} players not in this app’s data)` : ''} · ${e.owned.length} players on other teams${e.teamId ? '' : ' · <span class="warnc">choose your team so your picks are marked as yours</span>'}`;
+}
 
 export function render() {
   const L = state.league;
@@ -13,7 +45,7 @@ export function render() {
   const catRows = g => CATS.filter(c => c.grp === g).map(c => {
     const cc = L.cats[c.key];
     return `<tr><td><label>${pts ? '' : `<input type="checkbox" data-change="cat-on:${c.key}" ${cc.on ? 'checked' : ''}> `}<b>${c.label}</b> <span class="muted small">${esc(c.name)}</span></label></td>
-      <td>${pts ? `<input type="number" step="0.1" value="${cc.pts}" data-change="w:${c.key}" aria-label="${esc(c.name)} points">` : `<input type="number" step="0.25" value="${cc.w}" data-change="w:${c.key}" ${cc.on ? '' : 'disabled'} aria-label="${esc(c.name)} weight">`}</td></tr>`;
+      <td>${pts ? `<input type="number" step="0.1" value="${cc.pts}" data-change="w:${c.key}" aria-label="${esc(c.name)} points">` : `<input type="number" step="0.1" value="${cc.w}" data-change="w:${c.key}" ${cc.on ? '' : 'disabled'} aria-label="${esc(c.name)} weight">`}</td></tr>`;
   }).join('');
   return `<div class="view-head row between wrap"><div><h1>League configuration</h1><p class="muted">Every value and ranking in the app is recalculated from these settings, live, including mid-draft.</p></div>
     <button data-action="league-reset" class="danger">Reset to defaults</button></div>
@@ -29,13 +61,14 @@ export function render() {
             <label>League URL <input type="url" placeholder="https://…" value="${esc(L.url)}" data-change="league:url"></label>
           </div>
         </section>
+        ${espnCard()}
         <section class="card">
           <h3>Roster positions</h3>
           <div class="slots">${SLOT_KEYS.map(k => `<label><span>${k === 'F' ? 'F (C/LW/RW)' : k === 'UTIL' ? 'UTIL (any skater)' : k === 'BN' ? 'Bench' : k}</span><input type="number" min="0" max="10" value="${L.slots[k] || 0}" data-change="slot:${k}"></label>`).join('')}</div>
         </section>
         <section class="card">
           <h3>${pts ? 'Points per stat' : 'Scoring categories & weights'}</h3>
-          <p class="tiny muted">${pts ? 'Negative values subtract (e.g. GA −2).' : 'Weight 1 = standard. Raise to prioritize, 0.5 to de-emphasize, untick to ignore (punt). Ratio categories (SV%, GAA) are weighted by volume.'}</p>
+          <p class="tiny muted">${pts ? 'Negative values subtract (e.g. GA −2).' : 'Weight 1 = standard, in steps of 0.1. Raise to prioritize, e.g. 0.5 to de-emphasize, untick to ignore (punt). Ratio categories (SV%, GAA) are weighted by volume.'}</p>
           <div class="cols2 tight"><table class="cats"><thead><tr><th>Skaters</th><th>${pts ? 'Pts' : 'Weight'}</th></tr></thead><tbody>${catRows('S')}</tbody></table>
           <table class="cats"><thead><tr><th>Goalies</th><th>${pts ? 'Pts' : 'Weight'}</th></tr></thead><tbody>${catRows('G')}</tbody></table></div>
         </section>
@@ -77,8 +110,16 @@ export function onChange(key, el) {
   const num = v => (v === '' || Number.isNaN(+v) ? 0 : +v);
   if (kind === 'league') {
     const numeric = ['teams', 'draftSlot', 'weekStart', 'divWarn', 'confWarn', 'goalieDiscount'];
-    update(s => { s.league[name] = numeric.includes(name) ? num(el.value) : el.value; }, { render: !['name', 'url'].includes(name) });
+    update(s => { s.league[name] = numeric.includes(name) ? num(el.value) : el.value; }, { render: name !== 'name' });
     if (name === 'weekStart') { buildWeeks(); update(s => { s.league.playoffWeeks = null; }); }
+  }
+  if (kind === 'espn') {
+    update(s => {
+      if (name === 'auto') s.espn.auto = el.checked;
+      else if (name === 'teamId') s.espn.teamId = el.value ? +el.value : null;
+      else s.espn[name] = el.value.trim();
+    }, { render: name === 'auto' || name === 'teamId' });
+    if (name === 'teamId') sync().catch(err => update(s => { s.espn.error = err.message; }));
   }
   if (key === 'proj-only-scored') update(s => { s.league.projOnlyScored = el.checked; });
   if (kind === 'slot') update(s => { s.league.slots[name] = num(el.value); });
@@ -93,6 +134,14 @@ export function onChange(key, el) {
   }
 }
 
+const espnRun = (fn, ok) => async () => {
+  try { const r = await fn(); toast(ok(r)); }
+  catch (err) { update(s => { s.espn.error = err.message; }); toast(err.message); }
+};
+
 export const actions = {
+  'espn-connect': espnRun(connect, r => `Loaded ${r.teams.length} teams${r.mine ? ' and found your team' : '. Choose your team'}`),
+  'espn-import': espnRun(importSettings, r => r.slots ? `Imported roster slots and ${r.teams} teams` : 'No roster slots found in ESPN settings'),
+  'espn-sync': espnRun(sync, r => `Synced ${r.picks} picks (draft ${r.state})`),
   'league-reset': () => { if (confirm('Reset league settings to defaults?')) { resetLeague(); buildWeeks(); } },
 };

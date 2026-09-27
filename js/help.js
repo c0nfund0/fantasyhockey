@@ -37,6 +37,11 @@ const ACTION = {
   'sg-reset': 'Bring back dismissed suggestions and players you marked as taken.',
   'reload-app': 'Load the new version of the app. Your settings and rosters are kept.',
   'help-jump': 'Jump to this section.',
+  'espn-connect': 'Read the league from ESPN and list its teams so you can pick yours.',
+  'espn-import': 'Copy roster positions (C/LW/RW/F/D/UTIL/G/bench/IR) and number of teams from your ESPN league settings.',
+  'espn-sync': 'Pull the latest draft picks and every team’s roster from ESPN now.',
+  'espn-sync-now': 'Pull the latest draft picks from ESPN now (auto-sync also runs every 15 seconds on this page).',
+  'espn-roster': 'Replace the committed roster here with your current ESPN roster.',
 };
 
 const CHANGE = {
@@ -57,11 +62,15 @@ const CHANGE = {
   'proj-only-scored': 'Hide projected stats your league does not count in player profiles. Past seasons always show everything.',
   'po-week': 'Tick your league’s fantasy playoff weeks. Schedule and suggestions weigh games in these weeks.',
   import: 'Restore a backup exported from this app.',
+  'espn:s2': 'Only for private leagues: the espn_s2 cookie from a browser logged in to ESPN.',
+  'espn:swid': 'Only for private leagues: the SWID cookie ({…}). Also used to find your team automatically.',
+  'espn:teamId': 'Your team in the ESPN league. Picks by this team are marked as yours.',
+  'espn:auto': 'Keep draft picks and other teams’ rosters in sync with ESPN automatically.',
   'league:format': 'H2H categories: win each category weekly. Roto: season-long category ranks. Points: every stat is worth fixed points.',
   'league:name': 'Just a label.',
   'league:teams': 'Number of teams. Drives replacement level: more teams = shallower free-agent pool = scarcity matters more.',
   'league:draftSlot': 'Your first-round pick position.',
-  'league:url': 'Link to your league page, shown on the Commit step so you can make moves quickly.',
+  'league:url': 'Your league page. For ESPN leagues (URL contains leagueId=) this also enables automatic draft and roster sync.',
   'league:weekStart': 'Day your fantasy week starts (most platforms: Monday).',
   'league:divWarn': 'Warn when more than this share of your roster plays in one division.',
   'league:confWarn': 'Warn when more than this share of your roster plays in one conference.',

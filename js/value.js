@@ -4,6 +4,7 @@
 // Then value over replacement (VORP) by simulating how many players the league's slots actually consume.
 import { CATS, state } from './store.js';
 import { D } from './data.js';
+import { usable } from './slots.js';
 
 let cache = { key: null, res: null };
 
@@ -46,7 +47,8 @@ export function computeValues() {
   if (cache.key === key) return cache.res;
 
   const cats = activeCats(L);
-  const all = D.players.filter(p => p.proj);
+  // players who can't fill any starting slot in this league (e.g. goalies with 0 G slots) have no value
+  const all = D.players.filter(p => p.proj && usable(p, L.slots));
   const skCats = cats.filter(c => c.grp === 'S');
   const gCats = cats.filter(c => c.grp === 'G');
   const T = L.teams;
@@ -128,7 +130,7 @@ export function computeValues() {
   return cache.res;
 }
 
-export const valueOf = p => computeValues().values.get(p.id);
+export const valueOf = p => (p ? computeValues().values.get(p.id) : undefined);
 
 export function adpNote(p) {
   const v = valueOf(p);

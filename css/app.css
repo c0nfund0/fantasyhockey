@@ -224,6 +224,11 @@ dialog::backdrop { background: rgba(8, 14, 20, .55); }
 .need { font-size: .75rem; padding: .1rem .45rem; border-radius: 5px; background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .need.met { background: var(--good-bg); color: var(--good); }
 
+/* ---------- espn sync */
+.espnbar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .45rem .8rem; margin-bottom: 1rem; }
+.espnbar.err { border-color: var(--bad); }
+details summary { cursor: pointer; margin: .4rem 0; }
+
 /* ---------- sandbox */
 .results { margin: .5rem 0; }
 .results li { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }

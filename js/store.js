@@ -70,6 +70,7 @@ function defaults() {
     draft: { picks: [] },   // [{id, me}]
     ui: { view: 'players', team: 'TOR', pane: typeof window !== 'undefined' && window.innerWidth > 1280, playerFilter: {} },
     suggest: { dismissed: [], taken: [], hideOwned: true },
+    espn: { s2: '', swid: '', teamId: null, teams: [], leagueName: '', auto: true, owned: [], myRoster: [], lastSync: null, draftState: null, error: null, unmapped: 0 },
     liveInjuries: null,     // {fetched, byName}
   };
 }

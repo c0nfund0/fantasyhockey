@@ -121,7 +121,8 @@ export function render() {
               <td>${before.includes(p.id) ? '' : '<span class="badge good">new</span>'}${disparityFlags(p).length ? `<span class="badge warn" title="${esc(disparityFlags(p).map(f => f.text).join('\n'))}">flag</span>` : ''}</td>
               <td><button class="sm" data-action="sb-drop" data-id="${p.id}">Drop</button></td></tr>`).join('')}</tbody></table></div>`
             : '<p class="muted">Your roster is empty. Draft players in Draft mode, set your roster in Commit → “Sync with league”, or add players here.</p>'}
-          ${before.filter(id => !after.includes(id)).length ? `<p class="small">Leaving: ${before.filter(id => !after.includes(id)).map(id => plink(D.byId.get(id))).join(', ')}</p>` : ''}
+          ${after.some(id => !D.byId.has(id)) ? `<p class="flag warn">${after.filter(id => !D.byId.has(id)).length} rostered player(s) are missing from the current data and are left out of totals.</p>` : ''}
+          ${before.filter(id => !after.includes(id)).length ? `<p class="small">Leaving: ${before.filter(id => !after.includes(id) && D.byId.has(id)).map(id => plink(D.byId.get(id))).join(', ')}</p>` : ''}
         </section>
       </div>
       <aside>

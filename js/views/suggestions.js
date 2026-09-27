@@ -39,8 +39,12 @@ export function render() {
     return `${head}<section class="card"><p>Suggestions need your roster (at least 5 players). Draft in <a href="#draft">Draft mode</a> (it shows a suggested pick there), or paste your roster in <a href="#commit">Commit → Sync with league</a>.</p></section>`;
   }
   const weak = res.weak.slice(0, 3).filter(w => w.ratio < 1);
+  const er = state.espn.myRoster || [];
+  const cm = new Set(state.roster.committed);
+  const espnDiff = er.length && (er.length !== cm.size || er.some(id => !cm.has(id)));
   const strong = res.weak.slice(-3).reverse().filter(w => w.ratio > 1);
   return `${head}
+    ${espnDiff ? `<section class="card flag warn"><b>Your ESPN roster differs from the committed roster here</b> (${er.length} on ESPN vs ${cm.size} here). <button class="sm" data-action="espn-roster">Use my ESPN roster</button></section>` : ''}
     <section class="card"><h3>Your category profile</h3>
       <p class="small">Compared with an average team in a ${state.league.teams}-team league:
       ${weak.length ? `weakest <b>${weak.map(w => `${w.label} (${fmt.num(Math.abs(w.ratio) * 100, 0)}%)`).join(', ')}</b>` : 'no weak categories'}${strong.length ? `; strongest ${strong.map(w => `${w.label} (${fmt.num(Math.abs(w.ratio) * 100, 0)}%)`).join(', ')}` : ''}.

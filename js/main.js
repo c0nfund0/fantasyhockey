@@ -149,7 +149,7 @@ function onChange(e) {
   if (e.type === 'change' && textual) return;
   if (key.startsWith('filter:')) players.onChange(key, el.value);
   else if (key === 'pane-team') update(s => { s.ui.team = el.value; });
-  else if (/^(w|league|slot|cat-on):/.test(key) || key === 'po-week') league.onChange(key, el);
+  else if (/^(w|league|slot|cat-on):/.test(key) || key === 'po-week' || key === 'proj-only-scored') league.onChange(key, el);
   else if (key.startsWith('set:')) settings.onChange(key, el);
   else if (key === 'draft-slot') update(s => { s.league.draftSlot = +el.value || 1; });
   else if (key === 'draft-filter') update(s => { s.ui.draftFilter = el.value; });

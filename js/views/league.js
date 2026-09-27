@@ -55,6 +55,11 @@ export function render() {
           </div>
         </section>
         <section class="card">
+          <h3>Player profiles</h3>
+          <label class="small"><input type="checkbox" data-change="proj-only-scored" ${L.projOnlyScored !== false ? 'checked' : ''}> Projections: only show stats my league scores</label>
+          <p class="tiny muted">Goals, assists, points and ice time are always projected. PIM, hits, blocks, PPP, SOG, +/-, faceoffs (and goalie W, SV%, GAA, SO) appear only when scored above. Past seasons always show everything.</p>
+        </section>
+        <section class="card">
           <h3>Goalie volatility discount</h3>
           <label class="small">Reduce goalie value by <input type="number" min="0" max="80" step="5" value="${L.goalieDiscount ?? 25}" data-change="league:goalieDiscount"> %</label>
           <p class="tiny muted">Save % and wins swing more year to year than any skater stat, so raw z-scores overrate goalies relative to where they are drafted. 0 = trust the projection fully.</p>
@@ -75,6 +80,7 @@ export function onChange(key, el) {
     update(s => { s.league[name] = numeric.includes(name) ? num(el.value) : el.value; }, { render: !['name', 'url'].includes(name) });
     if (name === 'weekStart') { buildWeeks(); update(s => { s.league.playoffWeeks = null; }); }
   }
+  if (key === 'proj-only-scored') update(s => { s.league.projOnlyScored = el.checked; });
   if (kind === 'slot') update(s => { s.league.slots[name] = num(el.value); });
   if (kind === 'cat-on') update(s => { s.league.cats[name].on = el.checked; });
   if (kind === 'w') update(s => { s.league.cats[name][s.league.format === 'points' ? 'pts' : 'w'] = num(el.value); });

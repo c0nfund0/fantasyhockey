@@ -7,6 +7,18 @@ import { state, CATS } from '../store.js';
 import { teamChip, injBadge, posLabel, flagChip, secChip, ppChip, catFmt } from '../ui.js';
 import { sandbox, committed } from '../roster.js';
 
+// Projected stats your league doesn't score are hidden (League setting); G/A/P and usage always show.
+const SCORED_COL = { SOG: 'sog', PPP: 'ppp', '+/-': 'pm', PIM: 'pim', HIT: 'hit', BLK: 'blk', FOW: 'fow', W: 'w', 'SV%': 'svp', GAA: 'gaa', SO: 'so' };
+const UNSCORED = '<span class="muted" title="Not scored in your league (League settings)">·</span>';
+
+function leagueScores(label) {
+  const L = state.league;
+  const key = SCORED_COL[label];
+  if (!key || L.projOnlyScored === false) return true;
+  const c = L.cats[key];
+  return L.format === 'points' ? !!c.pts : c.on && !!c.w;
+}
+
 function skaterSeasons(p) {
   const keys = D.meta.histKeys;
   const cols = [
@@ -36,7 +48,7 @@ function skaterSeasons(p) {
       G: fmt.num(pr.g), A: fmt.num(pr.a), P: fmt.num(pr.p), SOG: fmt.num(pr.sog), 'SH%': fmt.pct(pr.sh), PPP: fmt.num(pr.ppp),
       '+/-': fmt.signed(pr.pm), PIM: fmt.num(pr.pim), HIT: fmt.num(pr.hit), BLK: fmt.num(pr.blk), FOW: fmt.num(pr.fow),
     };
-    rows.push(`<tr class="proj"><th>${D.meta.season} projection</th>${cols.map(c => `<td>${cells[c[0]] ?? '<span class="muted">—</span>'}</td>`).join('')}</tr>`);
+    rows.push(`<tr class="proj"><th>${D.meta.season} projection</th>${cols.map(c => `<td>${!leagueScores(c[0]) ? UNSCORED : cells[c[0]] ?? '<span class="muted">—</span>'}</td>`).join('')}</tr>`);
   }
   return `<div class="tablewrap"><table class="grid compact"><thead><tr><th>Season</th>${cols.map(c => `<th title="${esc(c[2] || '')}">${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
@@ -50,7 +62,7 @@ function goalieSeasons(p) {
     return `<tr><th>${D.meta.hist[i]}</th>${s ? cols.map(c => `<td>${c[1](s)}</td>`).join('') : `<td colspan="${cols.length}" class="muted">Did not play in the NHL</td>`}</tr>`;
   });
   if (p.cur) rows.push(`<tr class="cur"><th>${D.meta.season} to date</th>${cols.map(c => `<td>${c[1](p.cur)}</td>`).join('')}</tr>`);
-  if (p.proj) rows.push(`<tr class="proj"><th>${D.meta.season} projection</th>${cols.map(c => `<td>${c[0] === 'GSAx' ? '—' : c[1]({ ...p.proj, team: p.team })}</td>`).join('')}</tr>`);
+  if (p.proj) rows.push(`<tr class="proj"><th>${D.meta.season} projection</th>${cols.map(c => `<td>${c[0] === 'GSAx' ? '—' : !leagueScores(c[0]) ? UNSCORED : c[1]({ ...p.proj, team: p.team })}</td>`).join('')}</tr>`);
   return `<div class="tablewrap"><table class="grid compact"><thead><tr><th>Season</th>${cols.map(c => `<th title="${esc(c[2] || '')}">${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
 

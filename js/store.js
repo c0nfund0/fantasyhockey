@@ -62,6 +62,7 @@ function defaults() {
       confWarn: 65,
       url: '',
       draftSlot: 1,
+      projOnlyScored: true, // profile projection row: hide stats the league doesn't score
       goalieDiscount: 25,   // % haircut on goalie value for year-to-year volatility
     },
     roster: { committed: [], ops: [], history: [] },

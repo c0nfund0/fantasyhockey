@@ -323,6 +323,16 @@ def age_mult(age):
     return 1.12 if age < 19 else max(0.75, 0.935 - 0.025 * (age - 33))
 
 
+def hat_trick_rate(goals_per_game):
+    """Expected hat tricks per game from a per-game goal rate, via a Poisson approximation
+    (no per-game log data source is available to count these directly)."""
+    lam = max(0.0, goals_per_game)
+    p0 = math.exp(-lam)
+    p1 = p0 * lam
+    p2 = p1 * lam / 2
+    return max(0.0, 1 - p0 - p1 - p2)
+
+
 def league_rates(seasons_by_player, positions):
     """Per-60 league means by position group, used as the regression prior."""
     acc = {}
@@ -393,6 +403,7 @@ def project_skater(p, seasons, lg, injury_games):
         "sog": sog, "ppp": min(ppp, (goals + assists) * 0.75),
         "shp": rate("shp") * minutes / 60,
         "gwg": goals * L["gwg_per_g"],
+        "ht": hat_trick_rate(goals / gp) * gp,
         "pm": pm_pg * gp,
         "pim": rate("pim") * minutes / 60,
         "hit": rate("hit") * minutes / 60,

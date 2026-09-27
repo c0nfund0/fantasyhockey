@@ -12,6 +12,7 @@ export const CATS = [
   { key: 'ppp', label: 'PPP', name: 'Power-play points', grp: 'S' },
   { key: 'shp', label: 'SHP', name: 'Short-handed points', grp: 'S' },
   { key: 'gwg', label: 'GWG', name: 'Game-winning goals', grp: 'S' },
+  { key: 'ht', label: 'HAT', name: 'Hat tricks (3+ goal games)', grp: 'S' },
   { key: 'sog', label: 'SOG', name: 'Shots on goal', grp: 'S' },
   { key: 'hit', label: 'HIT', name: 'Hits', grp: 'S' },
   { key: 'blk', label: 'BLK', name: 'Blocked shots', grp: 'S' },
@@ -28,7 +29,7 @@ export const CATS = [
 const CAT_DEFAULTS = {
   // [on in category leagues, category weight, points-league value]
   g: [1, 1, 3], a: [1, 1, 2], p: [0, 1, 0], pm: [1, 1, 0.5], pim: [0, 1, 0], ppp: [1, 1, 1], shp: [0, 1, 1],
-  gwg: [0, 1, 0], sog: [1, 1, 0.4], hit: [1, 1, 0.3], blk: [1, 1, 0.4], fow: [0, 1, 0],
+  gwg: [0, 1, 0], ht: [0, 1, 5], sog: [1, 1, 0.4], hit: [1, 1, 0.3], blk: [1, 1, 0.4], fow: [0, 1, 0],
   w: [1, 1, 4], gaa: [1, 1, 0], svp: [1, 1, 0], sv: [0, 1, 0.2], ga: [0, 1, -2], so: [1, 1, 3], gs: [0, 1, 0],
 };
 
@@ -103,6 +104,12 @@ export function update(fn, { render = true } = {}) {
 
 export function resetLeague() {
   update(s => { s.league = defaults().league; });
+}
+
+export function resetAll() {
+  state = defaults();
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  subs.forEach(s => s());
 }
 
 window.addEventListener('storage', e => {

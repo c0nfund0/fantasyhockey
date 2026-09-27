@@ -106,6 +106,12 @@ export function resetLeague() {
   update(s => { s.league = defaults().league; });
 }
 
+export function resetAll() {
+  state = defaults();
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  subs.forEach(s => s());
+}
+
 window.addEventListener('storage', e => {
   if (e.key !== KEY) return;
   state = load();

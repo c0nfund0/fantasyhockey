@@ -1,7 +1,7 @@
 // Global display & localization settings (apply app-wide instantly) + data status.
 import { D, refreshInjuries } from '../data.js';
 import { esc, fmt } from '../format.js';
-import { state, update } from '../store.js';
+import { state, update, resetAll } from '../store.js';
 import { toast } from '../ui.js';
 
 const COMMON_TZ = ['Europe/Helsinki', 'Europe/Stockholm', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Chicago',
@@ -53,7 +53,7 @@ export function render() {
       <p class="tiny muted">Everything refreshes automatically on the server (injuries ~20 min, stats/standings hourly, rosters/ADP every few hours) and open pages pick up new data without reloading.</p>
       <h4>Backup</h4>
       <p class="small muted">Your league settings, rosters and draft board live in this browser. Export them to move to another device.</p>
-      <div class="btnrow"><button data-action="export">Export app state</button><label class="button">Import… <input type="file" accept="application/json" data-change="import" hidden></label></div>
+      <div class="btnrow"><button data-action="export">Export app state</button><label class="button">Import… <input type="file" accept="application/json" data-change="import" hidden></label><button data-action="clear-all" class="danger" title="Erase league settings, roster, draft board and display settings from this browser">Clear all data</button></div>
     </section>`;
 }
 
@@ -76,6 +76,9 @@ export const actions = {
     a.download = 'puck-ledger-state.json';
     a.click();
     URL.revokeObjectURL(a.href);
+  },
+  'clear-all': () => {
+    if (confirm('Erase all Puck Ledger data in this browser — league settings, roster, draft board and display settings? This cannot be undone. Export first if you want a backup.')) resetAll();
   },
 };
 

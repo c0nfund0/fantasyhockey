@@ -254,6 +254,21 @@ ul.commit li { padding: .5rem 0; }
 .spick { border: 1px solid var(--border); border-radius: 8px; padding: .6rem .7rem; }
 .spick.best { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
 
+/* ---------- tooltip, new-version banner, help */
+.tooltip { position: fixed; z-index: 1000; background: var(--text); color: var(--bg); font-size: .78rem; line-height: 1.35; padding: .4rem .55rem; border-radius: 6px; pointer-events: none; opacity: 0; transition: opacity .12s; white-space: pre-line; box-shadow: var(--shadow); }
+.tooltip.show { opacity: 1; }
+.newver { position: fixed; bottom: 16px; right: 16px; z-index: 90; display: flex; gap: .75rem; align-items: center; background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: .6rem .8rem; box-shadow: 0 8px 30px rgba(0, 0, 0, .25); }
+.help-grid { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 1rem; align-items: start; }
+.help-toc { position: sticky; top: 64px; }
+.help-toc ol { margin: 0; padding-left: 1.2rem; }
+.help-toc li { margin: .3rem 0; font-size: .88rem; }
+.help-sec { scroll-margin-top: 64px; max-width: 860px; }
+.help-sec h2 { margin-bottom: .6rem; }
+.help-sec li { margin: .35rem 0; }
+.help-dl dt { font-weight: 600; margin-top: .7rem; }
+.help-dl dd { margin: .2rem 0 0 0; color: var(--text); }
+@media (max-width: 1000px) { .help-grid { grid-template-columns: 1fr; } .help-toc { position: static; } }
+
 /* ---------- schedule */
 .sched td, .sched th { padding: .25rem .3rem; text-align: center; font-size: .8rem; }
 .sched tbody th { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 1; }

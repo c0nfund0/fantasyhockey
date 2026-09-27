@@ -11,6 +11,8 @@ import * as schedule from './views/schedule.js';
 import * as league from './views/league.js';
 import * as settings from './views/settings.js';
 import * as suggestions from './views/suggestions.js';
+import * as help from './views/help.js';
+import { applyHelp } from './help.js';
 import { tzOptions } from './views/settings.js';
 
 const VIEWS = {
@@ -22,8 +24,9 @@ const VIEWS = {
   schedule: { label: 'Schedule', render: schedule.render },
   league: { label: 'League', render: league.render },
   settings: { label: 'Display', render: settings.render },
+  help: { label: 'Help', render: help.render },
 };
-const ACTIONS = { ...suggestions.actions, ...draft.actions, ...sandboxV.actions, ...schedule.actions, ...league.actions, ...settings.actions };
+const ACTIONS = { ...help.actions, ...suggestions.actions, ...draft.actions, ...sandboxV.actions, ...schedule.actions, ...league.actions, ...settings.actions };
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.get('pane') === 'team';
@@ -85,6 +88,7 @@ function render() {
     renderProfileDlg();
     const nd = $('#profile .dlg-body');
     if (nd) nd.scrollTop = dlgScroll;
+    applyHelp();
     restoreFocus(f);
   });
 }
@@ -110,6 +114,7 @@ function openTeam(abbrev) {
 const GLOBAL_ACTIONS = {
   goto: (_, el) => { location.hash = el.dataset.view; },
   'profile-close': () => { profileId = null; render(); },
+  'reload-app': () => location.reload(),
   'pane-close': () => update(s => { s.ui.pane = false; }),
   'toggle-pane': () => update(s => { s.ui.pane = !s.ui.pane; }),
   'pane-popout': () => {
@@ -182,7 +187,27 @@ subscribe(render);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForNewData(); });
 })();
 
+// New front-end version deployed? (served by scripts/serve.py; absent on plain static hosts)
+let bootVersion = null;
+async function currentVersion() {
+  try { const r = await fetch('version.json', { cache: 'no-cache' }); return r.ok ? (await r.json()).version : null; } catch { return null; }
+}
+currentVersion().then(v => { bootVersion = v; });
+
+async function checkForNewVersion() {
+  if (!bootVersion || document.getElementById('newver')) return;
+  const v = await currentVersion();
+  if (v && v !== bootVersion) {
+    const b = document.createElement('div');
+    b.id = 'newver';
+    b.className = 'newver';
+    b.innerHTML = '<span>A new version of Puck Ledger is available.</span><button class="primary sm" data-action="reload-app">Reload</button>';
+    document.body.appendChild(b);
+  }
+}
+
 async function checkForNewData() {
+  checkForNewVersion();
   try {
     const m = await fetch('data/meta.json', { cache: 'no-cache' }).then(r => r.json());
     if (m.generated && m.generated !== D.meta.generated) {

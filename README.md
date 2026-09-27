@@ -9,6 +9,7 @@ A web app for fantasy hockey drafting and in-season roster management. Static fr
 - **League config**: format (H2H cats / roto / points), roster slots, categories and weights. All values recompute live, including mid-draft.
 - **Sandbox → Commit**: stage adds/drops/trades, see category impact, division/conference balance and disparity flags, then commit separately once done in the real league.
 - **Draft mode**: best available overall and by position under your scoring, value vs ESPN ADP (discount/reach), "likely gone" before your next pick, scarcity and tier-break warnings.
+- **Help**: a Help page (fantasy hockey basics, strategy, step-by-step use of every page, how the numbers work, FAQ) and hover help on every button, control, column and chip.
 - **Display settings**: timezone, cm/ft-in, kg/lb, TOI mm:ss/decimal, % vs decimal, number/date locale, 12/24h. All apply instantly.
 
 User state (league settings, rosters, draft board) is stored in the browser's localStorage. Use *Display → Export/Import* to move it between devices.
@@ -25,6 +26,9 @@ The `Containerfile` builds an image that runs `scripts/serve.py`: it serves the 
   broken (too few players/games/projections) is discarded, so the site keeps serving the previous data.
 - Open browser tabs poll `data/meta.json` (every 5 min and when the tab regains focus) and swap in new data
   without a reload.
+- Every response carries `Cache-Control: no-cache` plus a content-hash `ETag`, so browsers always revalidate:
+  a new deploy is picked up on the next load, while unchanged files return a cheap `304`. Open tabs poll
+  `/version.json` and show a "New version available: Reload" banner after a deploy.
 - Refresh results are logged to stdout (`data refresh ok …` / `FAILED …`).
 
 The `data/` baked into the image is only the starting point. For the download cache and data to survive

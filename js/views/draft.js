@@ -6,6 +6,8 @@ import { valueOf, adpNote, computeValues } from '../value.js';
 import { plink, teamChip, injBadge, ppChip, posLabel, toast } from '../ui.js';
 import { draftSuggestions } from '../suggest.js';
 import { allocate, rosterSize, usable, START_SLOTS } from '../slots.js';
+import { leagueIdFromUrl } from '../espn.js';
+import { espnStatus } from './league.js';
 
 const POS = ['C', 'LW', 'RW', 'D', 'G'];
 
@@ -146,6 +148,9 @@ export function render() {
       </div>
     </div>
 
+    <div class="espnbar ${state.espn.error ? 'err' : ''}">${leagueIdFromUrl(state.league.url)
+      ? `<b>ESPN</b> ${state.espn.auto ? '<span class="badge good">auto-sync on</span>' : '<span class="badge warn">auto-sync off</span>'} <span class="small">${espnStatus()}</span> <button class="sm" data-action="espn-sync-now">Sync now</button>`
+      : '<span class="small">Picks are entered by hand. Paste your ESPN league URL in <a href="#league">League</a> to pull picks automatically.</span>'}</div>
     <div class="draft-grid">
       <div>
         ${suggestedPicks(ds, avail)}

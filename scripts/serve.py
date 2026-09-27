@@ -17,6 +17,9 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = int(os.environ.get("PORT", "8000"))
@@ -70,6 +73,34 @@ def etag_for(fs_path):
     return _etags[key]
 
 
+ESPN_API = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/{season}/segments/0/leagues/{league}"
+ESPN_VIEWS = {"mDraftDetail", "mTeam", "mSettings", "mRoster"}
+
+
+def espn_league(query, headers):
+    """Fetch an ESPN fantasy hockey league. Private leagues need the user's espn_s2 + SWID cookies,
+    which the app sends as headers; they are forwarded to ESPN only and never stored."""
+    q = urllib.parse.parse_qs(query)
+    league, season = q.get("league", [""])[0], q.get("season", [""])[0]
+    if not league.isdigit() or not season.isdigit():
+        return 400, {"error": "league and season must be numeric"}
+    views = [v for v in q.get("view", []) if v in ESPN_VIEWS] or ["mTeam"]
+    url = ESPN_API.format(season=season, league=league) + "?" + urllib.parse.urlencode([("view", v) for v in views])
+    req_headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+    s2, swid = headers.get("X-Espn-S2", "").strip(), headers.get("X-Espn-Swid", "").strip()
+    if s2 and swid:
+        req_headers["Cookie"] = f"espn_s2={s2}; SWID={swid}"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=req_headers), timeout=20) as r:
+            return 200, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        msg = {401: "League is private: add your espn_s2 and SWID cookies in League settings.",
+               404: "League not found for this season. Check the league ID."}.get(e.code, f"ESPN responded {e.code}")
+        return e.code, {"error": msg}
+    except Exception as e:
+        return 502, {"error": f"Could not reach ESPN: {e}"}
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     etag = None
 
@@ -86,6 +117,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         # the build cache and tooling are not part of the site
         if path.startswith(("/scripts", "/.git", "/Containerfile")):
             self.send_error(404)
+            return
+        if path == "/api/espn":
+            code, obj = espn_league(urllib.parse.urlparse(self.path).query, self.headers)
+            body = json.dumps(obj).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
         if path == "/version.json":
             body = json.dumps({"version": APP_VERSION}).encode()

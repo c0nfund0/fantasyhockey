@@ -14,7 +14,7 @@ const LONG_INJURY_GAMES = 5;
 
 // Players this league can't use: drafted by others, or marked taken by the user.
 export function unavailableIds() {
-  return new Set([...state.draft.picks.filter(p => !p.me).map(p => p.id), ...(state.suggest?.taken || [])]);
+  return new Set([...state.draft.picks.filter(p => !p.me && p.id).map(p => p.id), ...(state.suggest?.taken || []), ...(state.espn?.owned || [])]);
 }
 
 // Free-agent pool approximation: not on my roster, not known-taken, and (optionally) not near-universally owned.

@@ -13,6 +13,7 @@ import * as settings from './views/settings.js';
 import * as suggestions from './views/suggestions.js';
 import * as help from './views/help.js';
 import { applyHelp } from './help.js';
+import { startAutoSync, applyMyEspnRoster, sync as espnSync } from './espn.js';
 import { tzOptions } from './views/settings.js';
 
 const VIEWS = {
@@ -90,6 +91,7 @@ function render() {
     if (nd) nd.scrollTop = dlgScroll;
     applyHelp();
     restoreFocus(f);
+    if (!POPOUT) startAutoSync(() => view() === 'draft');
   });
 }
 
@@ -115,6 +117,8 @@ const GLOBAL_ACTIONS = {
   goto: (_, el) => { location.hash = el.dataset.view; },
   'profile-close': () => { profileId = null; render(); },
   'reload-app': () => location.reload(),
+  'espn-roster': () => { if (confirm('Replace your committed roster with your ESPN roster?')) applyMyEspnRoster(); },
+  'espn-sync-now': () => espnSync().then(r => toast(`Synced ${r.picks} picks`)).catch(err => { update(s => { s.espn.error = err.message; }); toast(err.message); }),
   'pane-close': () => update(s => { s.ui.pane = false; }),
   'toggle-pane': () => update(s => { s.ui.pane = !s.ui.pane; }),
   'pane-popout': () => {
@@ -154,7 +158,7 @@ function onChange(e) {
   if (e.type === 'change' && textual) return;
   if (key.startsWith('filter:')) players.onChange(key, el.value);
   else if (key === 'pane-team') update(s => { s.ui.team = el.value; });
-  else if (/^(w|league|slot|cat-on):/.test(key) || key === 'po-week' || key === 'proj-only-scored') league.onChange(key, el);
+  else if (/^(w|league|slot|cat-on|espn):/.test(key) || key === 'po-week' || key === 'proj-only-scored') league.onChange(key, el);
   else if (key.startsWith('set:')) settings.onChange(key, el);
   else if (key === 'draft-slot') update(s => { s.league.draftSlot = +el.value || 1; });
   else if (key === 'draft-filter') update(s => { s.ui.draftFilter = el.value; });

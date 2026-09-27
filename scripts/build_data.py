@@ -229,6 +229,7 @@ def load_espn():
         own = pl.get("ownership") or {}
         adp = own.get("averageDraftPosition")
         by_name.setdefault(norm_name(pl["fullName"]), []).append({
+            "espnId": pl.get("id"),
             "elig": [ESPN_SLOTS[s] for s in pl.get("eligibleSlots", []) if s in ESPN_SLOTS],
             "adp": r(adp, 1) if adp and adp < 250 else None,
             "own": r(own.get("percentOwned"), 1),
@@ -647,6 +648,7 @@ def main():
         rec = {k: p[k] for k in ("id", "name", "team", "pos", "num", "shoots", "hIn", "hCm", "wLb", "wKg", "born", "age", "country", "img")}
         rec["elig"] = sorted(set(e.get("elig") or []) | {p["pos"]}, key="C LW RW D G".split().index)
         rec["adp"] = e.get("adp")
+        rec["espnId"] = e.get("espnId")
         rec["own"] = e.get("own")
         if inj:
             inj = dict(inj, gamesMissed=miss)

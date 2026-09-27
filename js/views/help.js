@@ -101,7 +101,8 @@ ${sec('start', SECTIONS[5][1], `
 
 ${sec('draftday', SECTIONS[6][1], `
 <ol>
-  <li>Open <a href="#draft">Draft</a> and set <b>Your slot</b>.</li>
+  <li><b>ESPN league?</b> Paste the league URL in <a href="#league">League</a> (and for a private league, the espn_s2 and SWID cookies), click <b>Connect</b>, choose your team and click <b>Import roster slots</b>. During the draft, picks then arrive automatically every 15 seconds, your draft slot is set from ESPN’s draft order, and players you pick join your roster. Skip the manual steps below.</li>
+  <li>Otherwise open <a href="#draft">Draft</a> and set <b>Your slot</b>.</li>
   <li>As picks happen, click <b>Taken</b> on players other managers draft and <b>Mine</b>/<b>Draft</b> on yours. Use the search box to find anyone quickly; <b>Undo</b> fixes mistakes.</li>
   <li>When you’re on the clock, read the <b>Suggested pick</b> card: it weighs value under your scoring, open roster slots, whether the player will last to your next pick (ADP), scarcity, injury and regression risk, and explains each factor.</li>
   <li>Scan <b>Best available by position</b> and the <b>vs ADP</b> column: “Discount +20” means the market takes the player ~20 picks later than you value them, so you can often wait. Faded rows are <i>likely gone</i> before your next pick.</li>
@@ -154,7 +155,7 @@ ${sec('data', SECTIONS[10][1], `
 ${sec('faq', SECTIONS[11][1], `
 <dl class="help-dl">
   <dt>Does committing a move change my real league?</dt><dd>No. The app never logs into your league. Make the move on your platform, then commit it here so the app knows your real roster.</dd>
-  <dt>Why does a suggestion name a player who’s already owned in my league?</dt><dd>The app can’t see other teams’ rosters. Players drafted by others on the Draft board are excluded automatically; click <b>Taken in my league</b> for the rest.</dd>
+  <dt>Why does a suggestion name a player who’s already owned in my league?</dt><dd>For ESPN leagues with sync on, other teams’ rosters are read from ESPN and excluded automatically. Otherwise the app only knows players drafted by others on the Draft board; click <b>Taken in my league</b> for the rest.</dd>
   <dt>Why is my ranking different from ESPN/Yahoo?</dt><dd>It uses your exact categories, weights and roster slots and values players over replacement. The vs ADP column shows where you and the market disagree.</dd>
   <dt>The lines look wrong for a team.</dt><dd>They are derived from last season’s usage, so training-camp changes appear once players log NHL minutes.</dd>
   <dt>Can I use it on my phone?</dt><dd>Yes. Your data lives in each browser separately; use Export/Import to copy it.</dd>

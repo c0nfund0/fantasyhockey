@@ -70,7 +70,7 @@ export const actions = {
     catch (e) { toast(`Injury refresh failed: ${e.message}`); }
   },
   export: () => {
-    const blob = new Blob([JSON.stringify({ ...state, liveInjuries: null }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ ...state, liveInjuries: null, espn: { ...state.espn, s2: '', swid: '' } }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'puck-ledger-state.json';
